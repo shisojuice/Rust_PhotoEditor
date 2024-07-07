@@ -1,9 +1,8 @@
 import init, { img_canvas, dl_canvas } from './rust_photoeditor.js';
 
 const myCanvas = document.getElementById("myCanvas");
-myCanvas.width = 768;
-myCanvas.height = 768;
-const myRect = myCanvas.getBoundingClientRect();
+myCanvas.width = myCanvas.clientWidth;
+myCanvas.height = myCanvas.clientHeight;
 const myContext = myCanvas.getContext("2d");
 myContext.lineWidth = 3;
 myContext.fillStyle = "black";
@@ -16,8 +15,10 @@ myCanvas.addEventListener("mousedown", (event) => {
 });
 document.addEventListener("mousemove", (event) => {
     // Canvas要素の位置を取得
+    const myRect = myCanvas.getBoundingClientRect();
     const mouse_x = event.clientX - myRect.left;
     const mouse_y = event.clientY - myRect.top;
+    console.log(mouse_x,mouse_y)
     //Canvas外
     if (mouse_x < 0 || mouse_x > myCanvas.clientWidth || mouse_y < 0 || mouse_y > myCanvas.clientHeight) {
         pressed = false;
@@ -35,13 +36,15 @@ myCanvas.addEventListener("mouseup", (event) => {
     myContext.stroke();
 });
 myCanvas.addEventListener("touchmove", (event) => {
+    event.preventDefault();
     // タッチ座標をCanvas座標系に変換
+    const myRect = myCanvas.getBoundingClientRect();
     let canvas_x = event.touches[0].clientX - myRect.left;
     let canvas_y = event.touches[0].clientY - myRect.top;
     // 現在の位置に矩形を描画
     myContext.fillRect(canvas_x, canvas_y, 1, 1);
     myXY.push({ x: canvas_x, y: canvas_y });
-});
+}, { passive: false });
 myCanvas.addEventListener("touchend", (event) => {
     for (let i = 0; i < myXY.length; i++) {
         if (i > 0 && i < myXY.length - 1) {
