@@ -18,7 +18,6 @@ document.addEventListener("mousemove", (event) => {
     const myRect = myCanvas.getBoundingClientRect();
     const mouse_x = event.clientX - myRect.left;
     const mouse_y = event.clientY - myRect.top;
-    console.log(mouse_x,mouse_y)
     //Canvas外
     if (mouse_x < 0 || mouse_x > myCanvas.clientWidth || mouse_y < 0 || mouse_y > myCanvas.clientHeight) {
         pressed = false;
@@ -71,7 +70,6 @@ async function run() {
         await blobToUint8Array(file_blob)
             .then(uint8Array => {
                 const ret = img_canvas(uint8Array, myCanvas.clientWidth);
-                console.log(ret);
                 myCanvas.width = ret.resize_w;
                 myCanvas.height = ret.resize_h;
                 myCanvas.style.width = ret.resize_w + "px";
