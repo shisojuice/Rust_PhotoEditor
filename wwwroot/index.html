@@ -6,14 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="Paint" />
-  <title>PhotoEditor</title>
+  <title>Paint</title>
   <link rel="stylesheet" href="index.css" />
 </head>
 
 <body>
-  <h1>PhotoEditor</h1>
-  <input type="file" id="file_input" accept="image/jpeg, image/png" />
+  <h1>Paint</h1>
+  <input type="file" id="file_input" accept="image/jpeg, image/png">
   <button id="dl_btn">Download</button>
+  <div id="main">
+    <canvas id="myCanvas"></canvas>
+    <img id="bgImg">
+  </div>
   <script type="module" src="./index.js"></script>
 </body>
 

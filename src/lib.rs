@@ -1,147 +1,95 @@
 
 use wasm_bindgen::prelude::*;
-use std::cell::{Cell, RefCell};
 use std::io::Cursor;
-use std::rc::Rc;
-use image::{DynamicImage, ImageFormat};
-use web_sys::{Blob, BlobPropertyBag, ImageData, Url};
+use base64::Engine;
+use base64::engine::general_purpose;
+use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
+use image::imageops::FilterType;
+use web_sys::{Blob, BlobPropertyBag, Url};
 use web_sys::js_sys::{Array, Uint8Array};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[wasm_bindgen]
-pub fn img_canvas(image_data: &[u8]) {
-    let img = image::load_from_memory(image_data).unwrap();
+#[derive(Serialize, Deserialize)]
+pub struct MyStruct {
+    pub w: u32,
+    pub h: u32,
+    pub resize_w: u32,
+    pub resize_h: u32,
+}
 
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document
-        .create_element("canvas").unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
-    canvas.set_id("myCanvas");
-    document.body().unwrap().append_child(&canvas).unwrap();
-    canvas.set_width(img.width());
-    canvas.set_height(img.height());
-    canvas.style().set_property("border", "solid").unwrap();
-    let context =
-        canvas.get_context("2d").unwrap().unwrap()
-            .dyn_into::<web_sys::CanvasRenderingContext2d>().unwrap();
-    let context = Rc::new(context);
-
-    // image crate の画像データを RGBA のベクタに変換
-    let raw_pixels: Vec<u8> = match img {
-        DynamicImage::ImageRgba8(ref img_buffer) => img_buffer.clone().into_raw(),
-        _ => {
-            // 他のフォーマットの場合は RGBA に変換する
-            img.to_rgba8().into_raw()
-        }
-    };
-    let image_data = ImageData::new_with_u8_clamped_array_and_sh(
-        wasm_bindgen::Clamped(&mut raw_pixels.clone()),
-        img.width(),
-        img.height(),
-    ).unwrap();
-    context.put_image_data(&image_data, 0.0, 0.0).unwrap();
-
-    context.set_line_width(3f64);
-    let pressed = Rc::new(Cell::new(false));
-    #[derive(Clone)]
-    struct Point {
-        x: f64,
-        y: f64,
-    }
-    // Rc<RefCell<Vec<Point>>> を使用してベクターを共有する
-    let my_xy = Rc::new(RefCell::new(Vec::new()));
-    {
-        let context = context.clone();
-        let pressed = pressed.clone();
-        let closure = Closure::<dyn FnMut(_)>::new(move |event: web_sys::MouseEvent| {
-            context.begin_path();
-            context.move_to(event.offset_x() as f64, event.offset_y() as f64);
-            pressed.set(true);
-        });
-        canvas.add_event_listener_with_callback("mousedown", closure.as_ref().unchecked_ref()).unwrap();
-        closure.forget();
-    }
-    {
-        let context = context.clone();
-        let pressed = pressed.clone();
-        let canvas_clone = canvas.clone();
-        let closure = Closure::<dyn FnMut(_)>::new(move |event: web_sys::MouseEvent| {
-            // Canvas要素の位置を取得
-            let rect = canvas_clone.get_bounding_client_rect();
-            let mouse_x = event.client_x() as f64 - rect.left();
-            let mouse_y = event.client_y() as f64 - rect.top();
-            //Canvas外
-            if mouse_x < 0f64|| mouse_x > canvas_clone.width() as f64 || mouse_y < 0f64 || mouse_y > canvas_clone.height() as f64 {
-                pressed.set(false);
-            }
-            if pressed.get() {
-                context.line_to(event.offset_x() as f64, event.offset_y() as f64);
-                context.stroke();
-                context.begin_path();
-                context.move_to(event.offset_x() as f64, event.offset_y() as f64);
-            }
-        });
-        document.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref()).unwrap();
-        closure.forget();
-    }
-    {
-        // smartphone_event
-        let context = context.clone();
-        let canvas_clone = canvas.clone();
-        let my_xy_clone = my_xy.clone();
-        let closure = Closure::<dyn FnMut(_)>::new(move |event: web_sys::TouchEvent| {
-            // Canvas要素の位置を取得
-            let rect = canvas_clone.get_bounding_client_rect();
-            // タッチ座標をCanvas座標系に変換
-            let canvas_x = event.touches().get(0).unwrap().client_x() as f64 - rect.left();
-            let canvas_y = event.touches().get(0).unwrap().client_y() as f64 - rect.top();
-            // 現在の位置に矩形を描画
-            context.fill_rect(canvas_x, canvas_y, 1f64, 1f64);
-            my_xy_clone.borrow_mut().push(Point{x:canvas_x, y:canvas_y});
-        });
-        canvas.add_event_listener_with_callback("touchmove", closure.as_ref().unchecked_ref()).unwrap();
-        closure.forget();
-    }
-    {
-        let context = context.clone();
-        let closure = Closure::<dyn FnMut(_)>::new(move |event: web_sys::MouseEvent| {
-            pressed.set(false);
-            context.line_to(event.offset_x() as f64, event.offset_y() as f64);
-            context.stroke();
-        });
-        canvas.add_event_listener_with_callback("mouseup", closure.as_ref().unchecked_ref()).unwrap();
-        closure.forget();
-    }
-    {
-        // smartphone_event
-        let context = context.clone();
-        let my_xy_clone = my_xy.clone();
-        let closure = Closure::<dyn FnMut(_)>::new(move |_event: web_sys::TouchEvent| {
-            for i in 0..my_xy_clone.borrow().len(){
-                if i > 0 && i < my_xy_clone.borrow().len() - 1 {
-                    context.begin_path();
-                    context.move_to(my_xy_clone.borrow().get(i-1).unwrap().x,my_xy_clone.borrow().get(i-1).unwrap().y);
-                    context.line_to(my_xy_clone.borrow().get(i).unwrap().x,my_xy_clone.borrow().get(i).unwrap().y);
-                    context.stroke();
-                }
-            }
-            my_xy_clone.borrow_mut().clear();
-        });
-        canvas.add_event_listener_with_callback("touchend", closure.as_ref().unchecked_ref()).unwrap();
-        closure.forget();
-    }
+pub struct MyResize {
+    pub canvas: DynamicImage,
+    pub resize_w: u32,
+    pub resize_h: u32,
 }
 
 #[wasm_bindgen]
-pub fn dl_canvas(image_data: &[u8]) {
+pub fn img_canvas(image_data: &[u8],my_size : f32)  -> JsValue{
     let img = image::load_from_memory(image_data).unwrap();
+    let document = web_sys::window().unwrap().document().unwrap();
+    let bg_img = document
+        .get_element_by_id("bgImg").unwrap()
+        .dyn_into::<web_sys::HtmlImageElement>().unwrap();
 
+    let mut buffer = Cursor::new(Vec::new());
+    let my_resize = resize_image(img.clone(), my_size);
+    my_resize.canvas.write_to(&mut buffer, ImageFormat::Png).unwrap();
+    let img_data = buffer.into_inner();
+    let base64_data = general_purpose::STANDARD.encode(img_data);
+    let data_url = format!("data:image/png;base64,{}", base64_data);
+    bg_img.set_src(&*data_url);
+
+    let my_struct = MyStruct {
+        w: img.clone().width(),
+        h: img.clone().height(),
+        resize_w: my_resize.resize_w,
+        resize_h: my_resize.resize_h,
+    };
+    serde_wasm_bindgen::to_value(&my_struct).unwrap()
+}
+
+// 画像のアスペクト比・操作しやすいサイズに設定・調整
+fn resize_image(img: DynamicImage, my_size: f32) -> MyResize{
+    let aspect_ratio = img.width() as f32 / img.height() as f32;
+    let (new_width, new_height) = if aspect_ratio > 1.0 {
+        // 横長の画像の場合
+        (my_size, (my_size / aspect_ratio) as u32)
+    } else {
+        // 縦長の画像の場合
+        (my_size * aspect_ratio , my_size as u32)
+    };
+    // リサイズ
+    let resized_img = img.resize_exact(new_width as u32, new_height  as u32, FilterType::Lanczos3);
+    let mut canvas = DynamicImage::new_rgba8(my_size as u32, my_size as u32);
+    // 白を背景色とする
+    let bkg_image= ImageBuffer::from_pixel(my_size as u32, my_size as u32, Rgba([255, 255, 255, 255]));
+    image::imageops::overlay(&mut canvas, &bkg_image, 0, 0);
+    // リサイズ画像をキャンバスの中央に貼付
+    let x = (my_size as u32- resized_img.width()) / 2;
+    let y = (my_size as u32 - resized_img.height()) / 2;
+    image::imageops::overlay(&mut canvas, &resized_img, x.into(), y.into());
+
+    let my_resize = MyResize {
+        canvas,
+        resize_w: resized_img.width(),
+        resize_h: resized_img.height(),
+    };
+    my_resize
+}
+
+#[wasm_bindgen]
+pub fn dl_canvas(canvas_image_data: &[u8],file_image_data: &[u8]) {
+    let mut file_img = image::load_from_memory(file_image_data).unwrap();
+    let canvas_img = image::load_from_memory(canvas_image_data).unwrap();
+    let resized_img = canvas_img.resize_exact(file_img.width() ,file_img.height() , FilterType::Lanczos3);
+    image::imageops::overlay(&mut file_img, &resized_img, 0, 0);
     //DL
     let mut buffer = Cursor::new(Vec::new());
-    img.write_to(&mut buffer, ImageFormat::Png).unwrap();
+    file_img.write_to(&mut buffer, ImageFormat::Png).unwrap();
     let img_data = buffer.into_inner();
     let window = web_sys::window().unwrap();
     let uint8_array = Uint8Array::from(img_data.as_slice());

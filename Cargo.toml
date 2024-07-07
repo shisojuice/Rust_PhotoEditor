@@ -26,7 +26,10 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = { version = "0.4.5", optional = true }
 image = "0.25.1"
-web-sys =  { version = "0.3.69", features = ["CanvasRenderingContext2d", "CssStyleDeclaration", "Document", "Element", "EventTarget", "HtmlCanvasElement", "HtmlElement", "MouseEvent", "TouchEvent", "Node", "Window", "DomRect", "TouchList", "Touch", "ImageData","Blob","BlobPropertyBag","Url","HtmlAnchorElement"] }
+web-sys =  { version = "0.3.69", features = ["CanvasRenderingContext2d", "CssStyleDeclaration", "Document", "Element", "EventTarget", "HtmlCanvasElement", "HtmlElement", "MouseEvent", "TouchEvent", "Node", "Window", "DomRect", "TouchList", "Touch", "ImageData","Blob","BlobPropertyBag","Url","HtmlAnchorElement","HtmlImageElement"] }
+base64 = "0.22.1"
+serde = { version = "1.0.204", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"
