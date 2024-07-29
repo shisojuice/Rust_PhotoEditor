@@ -8,5 +8,5 @@ https://qiita.com/shisojuice/items/2259763b3352c9c6ff97
 
 Demoサイト
 
-https://rust-photoeditor.pages.dev
+https://shisojuice.github.io/Rust_PhotoEditor/
 
